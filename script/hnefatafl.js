@@ -29,7 +29,13 @@ function isCellEmpty(c) {
 }
 
 function isCellCorner(c) {
-   return (corners.indexOf(c) >= 0);
+  var isCorner = false;
+  corners.forEach(function(corner) {
+    if (corner[0] == c[0] && corner[1] == c[1]) {
+        isCorner = true;
+    }
+  });
+  return isCorner;
 }
 
 function isCellInBounds(c) {
@@ -176,7 +182,6 @@ function bindMoveEvents(locs) {
 
 // actually move the piece
 function movePiece() {
-  console.log("this = ", this);
     var userClick = b.cell(this).where();
     if (bindMoveLocs.indexOf(userClick)) {
         b.cell(userClick).place(bindMovePiece);
