@@ -38,6 +38,61 @@ function isCellCorner(c) {
   return isCorner;
 }
 
+// Root of our class hierarchy for Hnefatafl pieces. A jsboard "piece" is just
+// an HTML div element.
+function TaflPiece(board, piece) {
+  this.board = board;
+  this.piece = piece;
+}
+TaflPiece.prototype.loc = function() {
+  return this.board.cell(this.piece.parentNode).where();
+}
+TaflPiece.prototype.canLandOn = function (c) {
+  return isCellInBounds(c) && isCellEmpty(c);
+}
+TaflPiece.prototype.getMoves = function() {
+  var start = this.loc();
+  var moves = [];
+  var self = this;
+  [[1,0], [-1,0], [0,1], [0,-1]].forEach(function(a) {
+    var cur = addLoc(start, a);
+    while (self.canLandOn(cur)) {
+      moves.push(cur);
+      cur = addLoc(cur, a);
+    }
+  });
+  return moves;
+}
+TaflPiece.prototype.die = function () {
+  this.board.cell(this.piece.parentNode).rid();
+}
+TaflPiece.prototype.addEventListener = function(a,b) {
+  // Forward it to the underlying piece
+  this.piece.addEventListener(a,b);
+}
+TaflPiece.prototype.removeEventListener = function(a,b) {
+  // Forward it to the underlying piece
+  this.piece.removeEventListener(a,b);
+}
+
+function King(board, piece) {
+  TaflPiece.call(this, board, piece);
+}
+King.prototype = Object.create(TaflPiece.prototype);
+
+function Defender(board, piece) {
+  TaflPiece.call(this, board, piece);
+}
+Defender.prototype = Object.create(TaflPiece.prototype);
+
+function Attacker(board, piece) {
+  TaflPiece.call(this, board, piece);
+}
+Attacker.prototype = Object.create(TaflPiece.prototype);
+Attacker.prototype.canLandOn = function (c) {
+  return isCellInBounds(c) && isCellEmpty(c) && !isCellCorner(c);
+}
+
 function isCellInBounds(c) {
   return (0 <= c[0]) && (c[0] <= 10) && (0 <= c[1]) && (c[1] <= 10);
 }
@@ -46,6 +101,13 @@ function isCellInBounds(c) {
 function loc(board, piece) {
   return board.cell(piece.parentNode).where();
 }
+
+// Kills a piece
+function kill(board, piece) {
+  board.cell(piece.parentNode).rid();
+}
+
+
 
 function addLoc(a, b) {
   return [a[0] + b[0], a[1] + b[1]];
@@ -92,20 +154,20 @@ function getAttackerMoves(board, piece) {
 
 // create pieces to place in DOM
 var whitePieces = [
-    king.clone()
+    new King(b, king.clone())
   ];
 for (var i = 0; i < 12; i++) {
-  whitePieces.push(defender.clone());
+  whitePieces.push(new Defender(b, defender.clone()));
 }
 [[3,5],[4,4],[4,5],[4,6],[5,3],[5,4],[5,6],[5,7],[6,4],[6,5],[6,6],[7,5]].forEach(function(i,j)
    {
-     b.cell(i).place(whitePieces[j+1]);
+     b.cell(i).place(whitePieces[j+1].piece);
    });
-b.cell(centre).place(whitePieces[0]);
+b.cell(centre).place(whitePieces[0].piece);
 
 var blackPieces = [];
 for (var i = 0; i < 24; i++) {
-  blackPieces.push(attacker.clone());
+  blackPieces.push(new Attacker(b, attacker.clone()));
 }
 var attackSquares = [];
 for (var i = 3; i < 8; i++) {
@@ -118,7 +180,7 @@ attackSquares.push([1,5]);
 attackSquares.push([9,5]);
 attackSquares.push([5,1]);
 attackSquares.push([5,9]);
-attackSquares.forEach(function(i,j) {b.cell(i).place(blackPieces[j]);});
+attackSquares.forEach(function(i,j) {b.cell(i).place(blackPieces[j].piece);});
 
 var isWhitesTurn = true;
 
@@ -149,6 +211,13 @@ enableWhite();
 // access to the move locations.
 var bindMoveLocs, bindMovePiece;
 
+function getTaflPiece(piece) {
+  function isPiece(p) {
+    return p.piece == piece;
+  }
+  return whitePieces.find(isPiece, piece) || blackPieces.find(isPiece, piece);
+}
+
 // show new locations
 function showMoves(piece) {
 
@@ -159,13 +228,14 @@ function showMoves(piece) {
 
     // Unfortunately, the piece object is hidden by the jsboard module,
     // forcing us to do this ugly if-then hack.
-    if (thisPiece=="WP") {
+    /*if (thisPiece=="WP") {
       newLocs = getDefenderMoves(b, piece);
     } else if (thisPiece == "WK") {
       newLocs = getKingMoves(b, piece);
     } else {
       newLocs = getAttackerMoves(b, piece);
-    }
+    }*/
+    newLocs = getTaflPiece(piece).getMoves();
 
     bindMoveLocs = newLocs.slice();
     bindMovePiece = piece;
