@@ -24,6 +24,8 @@ var king   = jsboard.piece({text:"WK", textIndent:"-9999px", background:"url('re
 var defender   = jsboard.piece({text:"WP", textIndent:"-9999px", background:"url('resources/chess_defender.svg') 0% 0% / 100% 100% no-repeat", width:"50px", height:"50px", margin:"0 auto" });
 var attacker   = jsboard.piece({text:"BP", textIndent:"-9999px", background:"url('resources/chess_attacker.svg') 0% 0% / 100% 100% no-repeat", width:"50px", height:"50px", margin:"0 auto" });
 
+// Utility methods related to cells
+
 function isCellEmpty(c) {
   return (b.cell(c).get() == null);
 }
@@ -38,13 +40,26 @@ function isCellCorner(c) {
   return isCorner;
 }
 
+function isCellInBounds(c) {
+  return (0 <= c[0]) && (c[0] <= 10) && (0 <= c[1]) && (c[1] <= 10);
+}
+
+function addLoc(a, b) {
+  return [a[0] + b[0], a[1] + b[1]];
+}
+
 // Root of our class hierarchy for Hnefatafl pieces. A jsboard "piece" is just
 // an HTML div element.
 function TaflPiece(board, piece) {
   this.board = board;
   this.piece = piece;
+  this.dead = false;
+  this.isKing = false;
 }
 TaflPiece.prototype.loc = function() {
+  if (this.dead) {
+    return undefined;
+  }
   return this.board.cell(this.piece.parentNode).where();
 }
 TaflPiece.prototype.canLandOn = function (c) {
@@ -65,6 +80,7 @@ TaflPiece.prototype.getMoves = function() {
 }
 TaflPiece.prototype.die = function () {
   this.board.cell(this.piece.parentNode).rid();
+  this.dead = true;
 }
 TaflPiece.prototype.addEventListener = function(a,b) {
   // Forward it to the underlying piece
@@ -77,79 +93,24 @@ TaflPiece.prototype.removeEventListener = function(a,b) {
 
 function King(board, piece) {
   TaflPiece.call(this, board, piece);
+  this.colour = "white";
+  this.isKing = true;
 }
 King.prototype = Object.create(TaflPiece.prototype);
 
 function Defender(board, piece) {
   TaflPiece.call(this, board, piece);
+  this.colour = "white";
 }
 Defender.prototype = Object.create(TaflPiece.prototype);
 
 function Attacker(board, piece) {
   TaflPiece.call(this, board, piece);
+  this.colour = "black";
 }
 Attacker.prototype = Object.create(TaflPiece.prototype);
 Attacker.prototype.canLandOn = function (c) {
   return isCellInBounds(c) && isCellEmpty(c) && !isCellCorner(c);
-}
-
-function isCellInBounds(c) {
-  return (0 <= c[0]) && (c[0] <= 10) && (0 <= c[1]) && (c[1] <= 10);
-}
-
-// Gets a piece's current location on a given board.
-function loc(board, piece) {
-  return board.cell(piece.parentNode).where();
-}
-
-// Kills a piece
-function kill(board, piece) {
-  board.cell(piece.parentNode).rid();
-}
-
-
-
-function addLoc(a, b) {
-  return [a[0] + b[0], a[1] + b[1]];
-}
-
-function getDefenderMoves(board, piece) {
-  var start = loc(board, piece);
-  var moves = [];
-  [[1,0], [-1,0], [0,1], [0,-1]].forEach(function(a) {
-    var cur = addLoc(start, a);
-    while (isCellInBounds(cur) && isCellEmpty(cur)) {
-      moves.push(cur);
-      cur = addLoc(cur, a);
-    }
-  });
-  return moves;
-}
-
-function getKingMoves(board, piece) {
-  var start = loc(board, piece);
-  var moves = [];
-  [[1,0], [-1,0], [0,1], [0,-1]].forEach(function(a) {
-    var cur = addLoc(start, a);
-    while (isCellInBounds(cur) && isCellEmpty(cur)) {
-      moves.push(cur);
-      cur = addLoc(cur, a);
-    }
-  });
-  return moves;
-}
-
-function getAttackerMoves(board, piece) {
-  var start = loc(board, piece);
-  var moves = [];
-  [[1,0], [-1,0], [0,1], [0,-1]].forEach(function(a) {
-    var cur = addLoc(start, a);
-    while (isCellInBounds(cur) && isCellEmpty(cur) && !isCellCorner(cur)) {
-      moves.push(cur);
-      cur = addLoc(cur, a);
-    }
-  });
-  return moves;
 }
 
 // create pieces to place in DOM
@@ -218,36 +179,70 @@ function getTaflPiece(piece) {
   return whitePieces.find(isPiece, piece) || blackPieces.find(isPiece, piece);
 }
 
+function getTaflPieceAtLoc(loc) {
+  function isPiece(p) {
+    var ploc = p.loc();
+    if (!ploc) {
+      return false;
+    }
+    return ((ploc[0] == loc[0]) && (ploc[1] == loc[1]));
+  }
+  return whitePieces.find(isPiece) || blackPieces.find(isPiece);
+}
+
 // show new locations
 function showMoves(piece) {
-
     resetBoard();
-
-    var thisPiece = b.cell(piece.parentNode).get();
-    var newLocs = [];
-
-    // Unfortunately, the piece object is hidden by the jsboard module,
-    // forcing us to do this ugly if-then hack.
-    /*if (thisPiece=="WP") {
-      newLocs = getDefenderMoves(b, piece);
-    } else if (thisPiece == "WK") {
-      newLocs = getKingMoves(b, piece);
-    } else {
-      newLocs = getAttackerMoves(b, piece);
-    }*/
-    newLocs = getTaflPiece(piece).getMoves();
-
-    bindMoveLocs = newLocs.slice();
+    var taflPiece = getTaflPiece(piece);
+    bindMoveLocs = taflPiece.getMoves();
     bindMovePiece = piece;
-    bindMoveEvents(newLocs);
+    bindMoveEvents(bindMoveLocs, taflPiece);
 }
 
 // bind move event to new piece locations
-function bindMoveEvents(locs) {
+function bindMoveEvents(locs, taflPiece) {
     for (var i=0; i<locs.length; i++) {
         b.cell(locs[i]).DOM().classList.add("green");
+        findPiecesKilledByMove(locs[i], taflPiece).forEach( function(p) {
+          console.log("p.loc = ", p.loc());
+          b.cell(p.loc()).DOM().classList.add("red");
+        });
         b.cell(locs[i]).on("click", movePiece);
     }
+}
+
+// Using rules from http://aagenielsen.dk/fetlar_rules_en.php :
+//   * Corners are hostile to all pieces but the king.
+//   * Throne is hostile to attackers always, but to defenders if empty.
+//   * The king can be captured on all 4 sides, or on three sides plus the
+//     throne -- NOT along the edge.
+function findPiecesKilledByMove(loc, movedPiece) {
+  var pieces = [];
+  [[0,-1], [0,1], [1,0], [-1,0]].forEach( function(a) {
+    var plusOne = addLoc(loc, a);
+    var plusTwo = addLoc(plusOne, a);
+    var middle = getTaflPieceAtLoc(plusOne);
+    if (middle && middle.isKing) {
+      return false; // short circuit -- king is special
+    }
+    var other = getTaflPieceAtLoc(plusTwo);
+    if (middle && other) {
+      if (movedPiece.colour == other.colour && movedPiece.colour != middle.colour) {
+        pieces.push(middle);
+      }
+    } else if (isCellCorner(plusTwo) && middle) {
+      if (movedPiece.colour != middle.colour) {
+        pieces.push(middle);
+      }
+    }
+
+  });
+  return pieces;
+}
+
+function killDeadPieces(loc, movedPiece) {
+   var toKill = findPiecesKilledByMove(loc, movedPiece);
+   toKill.forEach(function(p) { p.die(); });
 }
 
 // actually move the piece
@@ -255,6 +250,7 @@ function movePiece() {
     var userClick = b.cell(this).where();
     if (bindMoveLocs.indexOf(userClick)) {
         b.cell(userClick).place(bindMovePiece);
+        killDeadPieces(userClick, getTaflPieceAtLoc(userClick));
         resetBoard();
         if (isWhitesTurn) {
           enableBlack();
@@ -271,6 +267,7 @@ function resetBoard() {
     for (var r=0; r<b.rows(); r++) {
         for (var c=0; c<b.cols(); c++) {
             b.cell([r,c]).DOM().classList.remove("green");
+            b.cell([r,c]).DOM().classList.remove("red");
             b.cell([r,c]).removeOn("click", movePiece);
         }
     }
