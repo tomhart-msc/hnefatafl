@@ -10,6 +10,13 @@ var b = jsboard.board({attach:"game", size:"11x11"});
 b.style({background: "#E9AB31"});
 b.cell("each").style({width:"50px", height:"50px", background: "#F4CF85", border: "1px solid black", borderRadius: "3px"});
 
+// There is some very dangerous code ins jsBoard that sets the width, height,
+// and other attributes of all "td" elements, thus messing up the web page
+// layout. As a workaround, fix it here, after initializing the board.
+var x = document.getElementsByClassName("gameContainer");
+x[0].style.width="650px";
+x[0].style.background="#060606";
+
 // Mark the special squares
 var corners = [[0,0], [0,10], [10,0], [10,10]];
 var centre = [5,5];
@@ -165,13 +172,14 @@ attackSquares.push([5,1]);
 attackSquares.push([5,9]);
 attackSquares.forEach(function(i,j) {b.cell(i).place(blackPieces[j].piece);});
 
-var isWhitesTurn = true;
+var isWhitesTurn = false;
 
 // give functionality to pieces
 
 var moveListener = function() { showMoves(this); };
 
 function enableWhite() {
+  isWhitesTurn = true;
   for (var i=0; i<whitePieces.length; i++)
     whitePieces[i].addEventListener("click", moveListener);
   for (var i=0; i<blackPieces.length; i++)
@@ -179,10 +187,23 @@ function enableWhite() {
 }
 
 function enableBlack() {
+  isWhitesTurn = false;
   for (var i=0; i<whitePieces.length; i++)
     whitePieces[i].removeEventListener("click", moveListener);
   for (var i=0; i<blackPieces.length; i++)
     blackPieces[i].addEventListener("click", moveListener);
+}
+
+function deactivatePieces() {
+  for (var i=0; i<whitePieces.length; i++)
+    whitePieces[i].removeEventListener("click", moveListener);
+  for (var i=0; i<blackPieces.length; i++)
+    blackPieces[i].removeEventListener("click", moveListener);
+}
+
+function setWinner(colour) {
+  var div = document.getElementsByClassName("status")[0];
+  div.innerHTML = "<center><h1>" + colour + " wins!</h1></center>";
 }
 
 function checkForGameOver() {
@@ -190,18 +211,14 @@ function checkForGameOver() {
   var captured = king.isCaptured();
   var escaped = king.hasEscaped();
   if (captured || escaped) {
-    for (var i=0; i<whitePieces.length; i++)
-      whitePieces[i].removeEventListener("click", moveListener);
-    for (var i=0; i<blackPieces.length; i++)
-      blackPieces[i].removeEventListener("click", moveListener);
+    deactivatePieces();
   }
-  if (captured) { console.log("black wins"); }
-  if (escaped) { console.log("white wins"); }
+  if (captured) { setWinner("Black"); }
+  if (escaped) { setWinner("White"); }
 }
 
-
-// Defenders get to go first
-enableWhite();
+// Attackers get to go first
+enableBlack();
 
 // Variables for piece to move and its locs. The jsboard library Unfortunately
 // requires access to the listener to remove it using removeOn, making
@@ -239,6 +256,10 @@ function showMoves(piece) {
     resetBoard();
     var taflPiece = getTaflPiece(piece);
     bindMoveLocs = taflPiece.getMoves();
+    if (bindMoveLocs.length <= 0) {
+      setWinner(isWhitesTurn ? "Black" : "White");
+      deactivatePieces();
+    }
     bindMovePiece = piece;
     bindMoveEvents(bindMoveLocs, taflPiece);
 }
@@ -248,7 +269,6 @@ function bindMoveEvents(locs, taflPiece) {
     for (var i=0; i<locs.length; i++) {
         b.cell(locs[i]).DOM().classList.add("green");
         findPiecesKilledByMove(locs[i], taflPiece).forEach( function(p) {
-          console.log("p.loc = ", p.loc());
           b.cell(p.loc()).DOM().classList.add("red");
         });
         b.cell(locs[i]).on("click", movePiece);
@@ -303,10 +323,8 @@ function movePiece() {
         resetBoard();
         if (isWhitesTurn) {
           enableBlack();
-          isWhitesTurn = false;
         } else {
           enableWhite();
-          isWhitesTurn = true;
         }
         checkForGameOver();
     }

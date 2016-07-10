@@ -3,14 +3,51 @@
 <head>
     <meta charset="utf-8" />
     <title>Hnefatafl 0.1</title>
+    <link href="/css/font-awesome.css" rel="stylesheet" type="text/css">
     <style type='text/css'>
     	.green { background: lightgreen !important; }
       .red { background: red !important; }
+      body {
+        background-color: #060606;
+        color: #acb2b8;
+        font-family: Roboto,Arial,sans-serif;
+      }
     </style>
 </head>
 <body>
-<table id='game'></table>
-<script src="script/jsboard.min.js"></script>
-<script src="script/hnefatafl.js"></script>
+<table id="layout" width="100%">
+<tr>
+  <td class="gameContainer">
+    <table id='game'></table>
+    <script src="script/jsboard.min.js"></script>
+    <script src="script/hnefatafl.js"></script>
+  </td>
+  <td>
+    <table>
+      <tr><td>
+    <h2>Rules of Hnefatafl:</h2>
+    <ol>
+      <li>Black moves first.</li>
+      <li>Black's objective is to surround the white king on all four sides, or
+          on three sides plus the central square (the throne).</li>
+      <li>White's objective is for the king to escape to a corner square.</li>
+      <li>The king cannot be captured along the edge of the board.</li>
+      <li>Capturing is via <i>custodial capture</i>: a piece is captured if
+        it is sandwiched between two enemy pieces, but <i>only</i> if it is
+        sandwiches as a result of an enemy move --- ie. you can move a piece
+        between two enemy pieces, and your piece is not captured as a result.
+      <li>The corner squares are hostile to black for the purpose of
+        capturing.</li>
+      <li>The throne is always hostile to black, but hostile to white only
+        when unoccupied.</li>
+      <li>A player with no valid moves loses the game.</li>
+    </ol>
+  </tr></td>
+  <tr><td>
+    <div class="status"/>
+  </tr></td>
+</table>
+  </td>
+</table>
 </body>
 </html>
