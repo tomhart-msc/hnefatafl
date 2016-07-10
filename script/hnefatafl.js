@@ -30,6 +30,10 @@ function isCellEmpty(c) {
   return (b.cell(c).get() == null);
 }
 
+function isThrone(c) {
+  return c[0] == 5 && c[1] == 5;
+}
+
 function isCellCorner(c) {
   var isCorner = false;
   corners.forEach(function(corner) {
@@ -97,6 +101,24 @@ function King(board, piece) {
   this.isKing = true;
 }
 King.prototype = Object.create(TaflPiece.prototype);
+King.prototype.isCaptured = function () {
+  var start = this.loc();
+  var surroundedSides = 0;
+  var self = this;
+  [[1,0], [-1,0], [0,1], [0,-1]].forEach(function(a) {
+    var cur = addLoc(start, a);
+    var pieceAt = getTaflPieceAtLoc(cur);
+    if (isCellInBounds(cur) && (
+          (pieceAt && pieceAt.colour == "black") ||
+          (!pieceAt && isThrone(cur)))) {
+            surroundedSides++;
+    }
+  });
+  return (surroundedSides == 4);
+}
+King.prototype.hasEscaped = function () {
+  return isCellCorner(this.loc());
+}
 
 function Defender(board, piece) {
   TaflPiece.call(this, board, piece);
@@ -163,6 +185,21 @@ function enableBlack() {
     blackPieces[i].addEventListener("click", moveListener);
 }
 
+function checkForGameOver() {
+  var king = getKing();
+  var captured = king.isCaptured();
+  var escaped = king.hasEscaped();
+  if (captured || escaped) {
+    for (var i=0; i<whitePieces.length; i++)
+      whitePieces[i].removeEventListener("click", moveListener);
+    for (var i=0; i<blackPieces.length; i++)
+      blackPieces[i].removeEventListener("click", moveListener);
+  }
+  if (captured) { console.log("black wins"); }
+  if (escaped) { console.log("white wins"); }
+}
+
+
 // Defenders get to go first
 enableWhite();
 
@@ -177,6 +214,13 @@ function getTaflPiece(piece) {
     return p.piece == piece;
   }
   return whitePieces.find(isPiece, piece) || blackPieces.find(isPiece, piece);
+}
+
+function getKing() {
+  function isPiece(p) {
+    return p.isKing;
+  }
+  return whitePieces.find(isPiece);
 }
 
 function getTaflPieceAtLoc(loc) {
@@ -234,8 +278,13 @@ function findPiecesKilledByMove(loc, movedPiece) {
       if (movedPiece.colour != middle.colour) {
         pieces.push(middle);
       }
+    } else if (isThrone(plusTwo) && middle) {
+      // Throne is hostile to all when empty, and black when occupied by white.
+      // The latter case will have been taken care of above.
+      if (movedPiece.colour == "black" && middle.colour == "white") {
+        pieces.push(middle);
+      }
     }
-
   });
   return pieces;
 }
@@ -259,6 +308,7 @@ function movePiece() {
           enableWhite();
           isWhitesTurn = true;
         }
+        checkForGameOver();
     }
 }
 
