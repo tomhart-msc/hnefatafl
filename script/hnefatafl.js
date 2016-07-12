@@ -202,6 +202,7 @@ function deactivatePieces() {
 }
 
 function setWinner(colour) {
+  deactivatePieces();
   var div = document.getElementsByClassName("status")[0];
   div.innerHTML = "<center><h1>" + colour + " wins!</h1></center>";
 }
@@ -210,11 +211,14 @@ function checkForGameOver() {
   var king = getKing();
   var captured = king.isCaptured();
   var escaped = king.hasEscaped();
-  if (captured || escaped) {
-    deactivatePieces();
-  }
   if (captured) { setWinner("Black"); }
   if (escaped) { setWinner("White"); }
+
+  var whiteMoves = numMoves(whitePieces);
+  var blackMoves = numMoves(blackPieces);
+
+  if (isWhitesTurn && whiteMoves == 0) { setWinner("Black"); }
+  if (!isWhitesTurn && blackMoves == 0) { setWinner("White"); }
 }
 
 // Attackers get to go first
@@ -256,12 +260,13 @@ function showMoves(piece) {
     resetBoard();
     var taflPiece = getTaflPiece(piece);
     bindMoveLocs = taflPiece.getMoves();
-    if (bindMoveLocs.length <= 0) {
-      setWinner(isWhitesTurn ? "Black" : "White");
-      deactivatePieces();
-    }
     bindMovePiece = piece;
     bindMoveEvents(bindMoveLocs, taflPiece);
+}
+
+// Gets the total number of pieces for a set of pieces
+function numMoves(pieces) {
+    return pieces.reduce(function(oldSum, p) { return oldSum + (p.dead ? 0 : p.getMoves().length); }, 0);
 }
 
 // bind move event to new piece locations
